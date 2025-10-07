@@ -136,3 +136,29 @@ export const triggerDownload = (url: string, filename: string): void => {
   linkEl.click();
   URL.revokeObjectURL(url);
 };
+
+export const encodeStateToUrl = (obj: unknown): string => {
+  try {
+    const json = JSON.stringify(obj);
+    return btoa(encodeURIComponent(json));
+  } catch (e) {
+    console.error('Failed to encode state', e);
+    return '';
+  }
+};
+
+export const decodeStateFromUrl = (s: string): any => {
+  try {
+    const json = decodeURIComponent(atob(s));
+    return JSON.parse(json);
+  } catch (e) {
+    console.error('Failed to decode state', e);
+    return null;
+  }
+};
+
+export const exportJSON = (data: unknown, filename = 'export.json') => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  triggerDownload(url, filename);
+};

@@ -16,6 +16,8 @@ export interface ComplianceItem {
   annualDate?: string;
   financialYear?: boolean;
   relatedSections?: string[];
+  pinned?: boolean;
+  attachments?: Attachment[];
 }
 
 export type Status = 'Pending' | 'In Progress' | 'Completed' | 'Overdue';

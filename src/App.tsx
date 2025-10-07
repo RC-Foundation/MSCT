@@ -12,6 +12,7 @@ import {
   ComplianceItem,
 } from './types/compliance';
 import { STORAGE_KEY } from './utils/constants';
+main
 import {
   Calendar,
   AlertTriangle,
@@ -102,6 +103,10 @@ const getSortValue = (item: ComplianceItem, sortKey: SortKey) => {
 };
 
 const defaultStatus: Status = 'Pending';
+=======
+import { encodeStateToUrl, exportJSON, exportToCSV, decodeStateFromUrl } from './utils/helpers';
+import { Calendar } from 'lucide-react';
+main
 
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,6 +122,7 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [statusMap, setStatusMap] = useState<Record<number, Status>>({});
   const [notesMap, setNotesMap] = useState<Record<number, string>>({});
+  const [pinnedIds, setPinnedIds] = useState<number[]>([]);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -125,12 +131,46 @@ function App() {
         const parsed: AppState = JSON.parse(raw);
         setStatusMap(parsed.statusMap || {});
         setNotesMap(parsed.notesMap || {});
+main
         setTheme(parsed.theme || 'dark');
+
+        setTheme(parsed.theme || 'light');
+        setPinnedIds((parsed as any).pinnedIds || []);
+main
       } catch (e) {
         console.error('Failed to load state from localStorage', e);
       }
     }
   }, []);
+
+  // deduplicate source items by id once at runtime
+  const dedupedItems = useMemo(() => {
+    const seen = new Set<number>();
+    return complianceItems.filter((it) => {
+      if (seen.has(it.id)) return false;
+      seen.add(it.id);
+      return true;
+    });
+  }, [complianceItems]);
+
+  // helper to ensure every item has a status (default to 'Pending')
+  const ensureStatusDefaults = (current: Record<number, Status>, items: typeof complianceItems) => {
+    const out: Record<number, Status> = { ...(current || {}) };
+    items.forEach((it) => {
+      if (!out[it.id]) out[it.id] = 'Pending';
+    });
+    return out;
+  };
+
+  // ensure defaults whenever the deduped items change or statusMap loads
+  useEffect(() => {
+    setStatusMap((prev) => {
+      const merged = ensureStatusDefaults(prev, dedupedItems);
+      // if nothing changed, return prev to avoid extra renders
+      const same = Object.keys(merged).length === Object.keys(prev).length && Object.keys(merged).every((k) => (prev as any)[k] === (merged as any)[k]);
+      return same ? prev : merged;
+    });
+  }, [dedupedItems]);
 
   useEffect(() => {
     const snapshot: Partial<AppState> = {
@@ -138,7 +178,8 @@ function App() {
       notesMap,
       theme,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    const toSave = { ...snapshot, pinnedIds } as any;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   }, [statusMap, notesMap, theme]);
 
   useEffect(() => {
@@ -171,7 +212,10 @@ function App() {
   const resolveStatus = (id: number) => statusMap[id] || defaultStatus;
 
   const filteredItems = useMemo(() => {
-    let items = complianceItems.filter((item) => {
+    // use deduplicated base and merge pinned flag
+    const base = dedupedItems.map((it) => ({ ...it, pinned: pinnedIds.includes(it.id) }));
+
+    let items = base.filter((item) => {
       const matchesSearch =
         searchTerm === '' ||
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -284,16 +328,83 @@ function App() {
       .slice(0, 4);
   }, [filteredItems]);
 
+  const handleShare = () => {
+    const shareState = {
+      statusMap,
+      notesMap,
+      theme,
+      pinnedIds,
+      filters: { searchTerm, filterType, filterParty, filterCategory, showHighPriority, viewMode, rolePreset, quickView, sortKey, sortDir },
+    };
+    const token = encodeStateToUrl(shareState);
+    const url = `${window.location.origin}${window.location.pathname}?s=${token}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => alert('Shareable link copied to clipboard'))
+      .catch(() => prompt('Copy this link', url));
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('s');
+    if (s) {
+      const decoded = decodeStateFromUrl(s);
+      if (decoded) {
+        setStatusMap(decoded.statusMap || {});
+        setNotesMap(decoded.notesMap || {});
+        setTheme(decoded.theme || 'light');
+        setPinnedIds(decoded.pinnedIds || []);
+        if (decoded.filters) {
+          setSearchTerm(decoded.filters.searchTerm || '');
+          setFilterType(decoded.filters.filterType || 'all');
+          setFilterParty(decoded.filters.filterParty || 'all');
+          setFilterCategory(decoded.filters.filterCategory || 'all');
+          setShowHighPriority(decoded.filters.showHighPriority || false);
+        }
+      }
+    }
+  }, []);
+
   const handleThemeToggle = () => {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   };
 
   const handleExport = () => {
-    alert('Export functionality - CSV and JSON exports available');
+  const snapshot = { complianceItems: dedupedItems, statusMap, notesMap, pinnedIds };
+  exportJSON(snapshot, 'msct-export.json');
+  const csv = exportToCSV(dedupedItems, statusMap, notesMap);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    // prompt CSV download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'msct-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const handleImport = () => {
-    alert('Import functionality - Import JSON data');
+  const handleImport = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          if (parsed.statusMap) setStatusMap(parsed.statusMap);
+          if (parsed.notesMap) setNotesMap(parsed.notesMap);
+          if (parsed.pinnedIds) setPinnedIds(parsed.pinnedIds);
+          alert('Import complete');
+        } catch (err) {
+          alert('Failed to import: invalid JSON');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   const handlePrint = () => {
@@ -673,6 +784,7 @@ function App() {
           onExport={handleExport}
           onImport={handleImport}
           onPrint={handlePrint}
+          onShare={handleShare}
         />
 
         <Controls
@@ -686,7 +798,7 @@ function App() {
           quickView={quickView}
           sortKey={sortKey}
           sortDir={sortDir}
-          totalItems={complianceItems.length}
+          totalItems={dedupedItems.length}
           filteredCount={filteredItems.length}
           onSearchChange={setSearchTerm}
           onFilterCategoryChange={setFilterCategory}
