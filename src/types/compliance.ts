@@ -49,11 +49,26 @@ export interface AuditLogEntry {
   details: string;
 }
 
+export interface FilterState {
+  searchTerm: string;
+  filterType: string;
+  filterParty: string;
+  filterCategory: string;
+  showHighPriority: boolean;
+  viewMode: ViewMode;
+  rolePreset: RolePreset;
+  quickView: QuickView;
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+}
+
 export interface AppState {
-  statusMap: Record<number, Status>;
-  notesMap: Record<number, string>;
-  auditLog: AuditLogEntry[];
-  attachmentsMap: Record<number, Attachment[]>;
-  reminderList: Reminder[];
-  theme: 'light' | 'dark';
+  statusMap?: Record<number, Status>;
+  notesMap?: Record<number, string>;
+  auditLog?: AuditLogEntry[];
+  attachmentsMap?: Record<number, Attachment[]>;
+  reminderList?: Reminder[];
+  theme?: 'light' | 'dark';
+  filters?: FilterState;
+  generatedAt?: string;
 }

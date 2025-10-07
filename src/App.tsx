@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, ChangeEvent } from 'react';
 import { Header } from './components/Header';
 import { Controls } from './components/Controls';
 import { complianceItems } from './data/complianceItems';
@@ -10,8 +10,14 @@ import {
   Status,
   AppState,
   ComplianceItem,
+codex/redesign-website-experience-and-visuals-ua4kes
+  FilterState,
+} from './types/compliance';
+import { STORAGE_KEY, SHARE_QUERY_KEY } from './utils/constants';
+import { downloadItemsToCalendar, downloadItemToCalendar } from './utils/ics';
 } from './types/compliance';
 import { STORAGE_KEY } from './utils/constants';
+main
 main
 import {
   Calendar,
@@ -24,6 +30,10 @@ import {
   Layers3,
   ShieldCheck,
   StickyNote,
+codex/redesign-website-experience-and-visuals-ua4kes
+  CalendarPlus,
+
+main
 } from 'lucide-react';
 
 const MONTHS = [
@@ -43,6 +53,49 @@ const MONTHS = [
 
 const statusOptions: Status[] = ['Pending', 'In Progress', 'Completed', 'Overdue'];
 
+codex/redesign-website-experience-and-visuals-ua4kes
+const defaultFilters: FilterState = {
+  searchTerm: '',
+  filterType: 'all',
+  filterParty: 'all',
+  filterCategory: 'all',
+  showHighPriority: false,
+  viewMode: 'dashboard',
+  rolePreset: 'all',
+  quickView: 'all',
+  sortKey: 'priority',
+  sortDir: 'desc',
+};
+
+type ToastTone = 'info' | 'success' | 'error';
+
+interface ToastMessage {
+  text: string;
+  tone: ToastTone;
+  link?: string;
+}
+
+const encodeStatePayload = (state: AppState) => {
+  const encoder = new TextEncoder();
+  const json = JSON.stringify(state);
+  const bytes = encoder.encode(json);
+  let binary = '';
+  bytes.forEach((value) => {
+    binary += String.fromCharCode(value);
+  });
+  return encodeURIComponent(btoa(binary));
+};
+
+const decodeStatePayload = (payload: string): AppState => {
+  const decoder = new TextDecoder();
+  const binary = atob(decodeURIComponent(payload));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const json = decoder.decode(bytes);
+  return JSON.parse(json) as AppState;
+};
+
+
+main
 const priorityAccent: Record<string, { bg: string; text: string; ring: string }> = {
   Critical: {
     bg: 'from-rose-500/30 via-rose-500/10 to-transparent',
@@ -103,7 +156,66 @@ const getSortValue = (item: ComplianceItem, sortKey: SortKey) => {
 };
 
 const defaultStatus: Status = 'Pending';
-=======
+codex/redesign-website-experience-and-visuals-ua4kes
+
+function App() {
+  const [searchTerm, setSearchTerm] = useState(defaultFilters.searchTerm);
+  const [filterType, setFilterType] = useState(defaultFilters.filterType);
+  const [filterParty, setFilterParty] = useState(defaultFilters.filterParty);
+  const [filterCategory, setFilterCategory] = useState(defaultFilters.filterCategory);
+  const [showHighPriority, setShowHighPriority] = useState(defaultFilters.showHighPriority);
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultFilters.viewMode);
+  const [rolePreset, setRolePreset] = useState<RolePreset>(defaultFilters.rolePreset);
+  const [quickView, setQuickView] = useState<QuickView>(defaultFilters.quickView);
+  const [sortKey, setSortKey] = useState<SortKey>(defaultFilters.sortKey);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(defaultFilters.sortDir);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [statusMap, setStatusMap] = useState<Record<number, Status>>({});
+  const [notesMap, setNotesMap] = useState<Record<number, string>>({});
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  const applyFilters = (filters?: Partial<FilterState>) => {
+    const merged: FilterState = { ...defaultFilters, ...(filters ?? {}) };
+    setSearchTerm(merged.searchTerm);
+    setFilterType(merged.filterType);
+    setFilterParty(merged.filterParty);
+    setFilterCategory(merged.filterCategory);
+    setShowHighPriority(merged.showHighPriority);
+    setViewMode(merged.viewMode);
+    setRolePreset(merged.rolePreset);
+    setQuickView(merged.quickView);
+    setSortKey(merged.sortKey);
+    setSortDir(merged.sortDir);
+  };
+
+  const buildStateSnapshot = (): AppState => ({
+    statusMap,
+    notesMap,
+    theme,
+    filters: {
+      searchTerm,
+      filterType,
+      filterParty,
+      filterCategory,
+      showHighPriority,
+      viewMode,
+      rolePreset,
+      quickView,
+      sortKey,
+      sortDir,
+    },
+    generatedAt: new Date().toISOString(),
+  });
+
+  const pushToast = (message: string, tone: ToastTone = 'info', link?: string) => {
+    setToast({ text: message, tone, link });
+    if (link) {
+      setShareUrl(link);
+    }
+  };
 import { encodeStateToUrl, exportJSON, exportToCSV, decodeStateFromUrl } from './utils/helpers';
 import { Calendar } from 'lucide-react';
 main
@@ -123,12 +235,64 @@ function App() {
   const [statusMap, setStatusMap] = useState<Record<number, Status>>({});
   const [notesMap, setNotesMap] = useState<Record<number, string>>({});
   const [pinnedIds, setPinnedIds] = useState<number[]>([]);
+main
 
   useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const applyImportedState = (state?: Partial<AppState>) => {
+    if (!state) {
+      setStatusMap({});
+      setNotesMap({});
+      applyFilters();
+      setTheme('dark');
+      return;
+    }
+
+    setStatusMap(state.statusMap ?? {});
+    setNotesMap(state.notesMap ?? {});
+    if (state.theme) {
+      setTheme(state.theme);
+    }
+    if (state.filters) {
+      applyFilters(state.filters);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedPayload = params.get(SHARE_QUERY_KEY);
+
+    if (sharedPayload) {
+      try {
+        const parsed = decodeStatePayload(sharedPayload);
+        applyImportedState(parsed);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        const url = `${window.location.origin}${window.location.pathname}?${SHARE_QUERY_KEY}=${sharedPayload}`;
+        pushToast('Loaded shared workspace snapshot.', 'success', url);
+      } catch (error) {
+        console.error('Failed to parse shared workspace', error);
+        pushToast('Unable to load shared workspace link.', 'error');
+      }
+
+      params.delete(SHARE_QUERY_KEY);
+      const query = params.toString();
+      const newUrl = `${window.location.pathname}${query ? `?${query}` : ''}`;
+      window.history.replaceState({}, '', newUrl);
+      return;
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
         const parsed: AppState = JSON.parse(raw);
+codex/redesign-website-experience-and-visuals-ua4kes
+        applyImportedState(parsed);
+      } catch (error) {
+        console.error('Failed to load state from localStorage', error);
         setStatusMap(parsed.statusMap || {});
         setNotesMap(parsed.notesMap || {});
 main
@@ -139,6 +303,7 @@ main
 main
       } catch (e) {
         console.error('Failed to load state from localStorage', e);
+main
       }
     }
   }, []);
@@ -173,6 +338,24 @@ main
   }, [dedupedItems]);
 
   useEffect(() => {
+codex/redesign-website-experience-and-visuals-ua4kes
+    const snapshot = buildStateSnapshot();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  }, [
+    statusMap,
+    notesMap,
+    theme,
+    searchTerm,
+    filterType,
+    filterParty,
+    filterCategory,
+    showHighPriority,
+    viewMode,
+    rolePreset,
+    quickView,
+    sortKey,
+    sortDir,
+  ]);
     const snapshot: Partial<AppState> = {
       statusMap,
       notesMap,
@@ -181,6 +364,7 @@ main
     const toSave = { ...snapshot, pinnedIds } as any;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   }, [statusMap, notesMap, theme]);
+main
 
   useEffect(() => {
     const root = document.documentElement;
@@ -188,6 +372,8 @@ main
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
+codex/redesign-website-experience-and-visuals-ua4kes
+
     }
   }, [theme]);
 
@@ -206,8 +392,11 @@ main
       setFilterParty('MSAT');
     } else if (rolePreset === 'minister') {
       setFilterParty('Minister; MSGC');
+main
     }
-  }, [rolePreset]);
+  }, [theme]);
+
+  const resolveStatus = (id: number) => statusMap[id] || defaultStatus;
 
   const resolveStatus = (id: number) => statusMap[id] || defaultStatus;
 
@@ -268,6 +457,66 @@ main
       const idxB = monthB ? MONTHS.indexOf(monthB) : 99;
       if (idxA !== idxB) return idxA - idxB;
       return (priorityRank[b.priority] ?? 0) - (priorityRank[a.priority] ?? 0);
+codex/redesign-website-experience-and-visuals-ua4kes
+    });
+    return ranked;
+  }, [filteredItems]);
+
+  const calendarBuckets = useMemo(() => {
+    const buckets = new Map<string, ComplianceItem[]>();
+    filteredItems.forEach((item) => {
+      const month = resolveMonthForItem(item) ?? 'Flexible';
+      const existing = buckets.get(month) ?? [];
+      existing.push(item);
+      buckets.set(month, existing);
+    });
+    return buckets;
+  }, [filteredItems]);
+
+  const priorityCounts = useMemo(() => {
+    return complianceItems.reduce(
+      (acc, item) => {
+        acc[item.priority] = (acc[item.priority] ?? 0) + 1;
+        return acc;
+      },
+      { Critical: 0, High: 0, Medium: 0, Low: 0 } as Record<string, number>,
+    );
+  }, []);
+
+  const statusCounts = useMemo(() => {
+    return complianceItems.reduce(
+      (acc, item) => {
+        const status = resolveStatus(item.id);
+        acc[status] = (acc[status] ?? 0) + 1;
+        return acc;
+      },
+      { Pending: 0, 'In Progress': 0, Completed: 0, Overdue: 0 } as Record<Status, number>,
+    );
+  }, [statusMap]);
+
+  const completionRate = Math.round((statusCounts.Completed / complianceItems.length) * 100);
+  const activeCritical = filteredItems.filter((item) => item.priority === 'Critical' && resolveStatus(item.id) !== 'Completed').length;
+
+  const upcomingHighlights = useMemo(() => {
+    return timelineItems
+      .filter((item) => resolveMonthForItem(item) !== null)
+      .slice(0, 5)
+      .map((item) => ({
+        item,
+        month: resolveMonthForItem(item) ?? 'Flexible',
+        status: resolveStatus(item.id),
+      }));
+  }, [timelineItems, statusMap]);
+
+  const topParties = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredItems.forEach((item) => {
+      counts[item.responsible] = (counts[item.responsible] ?? 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+  }, [filteredItems]);
     });
     return ranked;
   }, [filteredItems]);
@@ -364,12 +613,56 @@ main
       }
     }
   }, []);
+main
 
   const handleThemeToggle = () => {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   };
 
   const handleExport = () => {
+codex/redesign-website-experience-and-visuals-ua4kes
+    try {
+      const snapshot = buildStateSnapshot();
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:]/g, '-');
+      anchor.href = url;
+      anchor.download = `msct-workspace-${timestamp}.json`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      pushToast('Workspace exported as JSON.', 'success');
+    } catch (error) {
+      console.error('Export failed', error);
+      pushToast('Export failed. Please try again.', 'error');
+    }
+  };
+
+  const handleImport = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const content = typeof reader.result === 'string' ? reader.result : '';
+        const parsed = JSON.parse(content) as AppState;
+        applyImportedState(parsed);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        pushToast('Workspace imported successfully.', 'success');
+      } catch (error) {
+        console.error('Failed to import workspace', error);
+        pushToast('Import failed. Ensure the file is a valid workspace export.', 'error');
+      }
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
+
   const snapshot = { complianceItems: dedupedItems, statusMap, notesMap, pinnedIds };
   exportJSON(snapshot, 'msct-export.json');
   const csv = exportToCSV(dedupedItems, statusMap, notesMap);
@@ -405,12 +698,104 @@ main
       reader.readAsText(file);
     };
     input.click();
+main
   };
 
   const handlePrint = () => {
     window.print();
   };
 
+codex/redesign-website-experience-and-visuals-ua4kes
+  const handleShareWorkspace = async () => {
+    try {
+      const snapshot = buildStateSnapshot();
+      const encoded = encodeStatePayload(snapshot);
+      const url = `${window.location.origin}${window.location.pathname}?${SHARE_QUERY_KEY}=${encoded}`;
+      setShareUrl(url);
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'MSCT workspace', url });
+          pushToast('Share sheet opened. Send the link to your collaborators.', 'success', url);
+          return;
+        } catch (error) {
+          console.warn('Native share cancelled or failed', error);
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(url);
+        pushToast('Shareable link copied to clipboard.', 'success', url);
+      } catch (error) {
+        console.error('Clipboard copy failed', error);
+        pushToast('Shareable link ready below.', 'info', url);
+      }
+    } catch (error) {
+      console.error('Failed to create share link', error);
+      pushToast('Unable to generate a share link.', 'error');
+    }
+  };
+
+  const handleResetWorkspace = () => {
+    applyImportedState(undefined);
+    localStorage.removeItem(STORAGE_KEY);
+    setShareUrl(null);
+    pushToast('Workspace reset. Local changes cleared.', 'success');
+  };
+
+  const handleCalendarDownload = () => {
+    const success = downloadItemsToCalendar(
+      filteredItems,
+      statusMap,
+      notesMap,
+      window.location.href,
+      'msct-schedule',
+    );
+
+    if (success) {
+      pushToast('Downloaded calendar file for the current view.', 'success');
+    } else {
+      pushToast('No items available to export for the calendar.', 'info');
+    }
+  };
+
+  const handleItemCalendarDownload = (item: ComplianceItem) => {
+    const success = downloadItemToCalendar(
+      item,
+      statusMap,
+      notesMap,
+      window.location.href,
+      `msct-item-${item.id}`,
+    );
+
+    if (success) {
+      pushToast(`Calendar entry generated for "${item.title}".`, 'success');
+    } else {
+      pushToast('Unable to generate a calendar entry for this requirement.', 'error');
+    }
+  };
+
+  const handleRolePresetChange = (preset: RolePreset) => {
+    setRolePreset(preset);
+    if (preset === 'all') {
+      setFilterParty('all');
+    } else if (preset === 'council') {
+      setFilterParty('Settlement Council');
+    } else if (preset === 'administrator') {
+      setFilterParty('Settlement Administrator');
+    } else if (preset === 'registrar') {
+      setFilterParty('MSLR Registrar');
+    } else if (preset === 'msgc') {
+      setFilterParty('MSGC (General Council)');
+    } else if (preset === 'msat') {
+      setFilterParty('MSAT');
+    } else if (preset === 'minister') {
+      setFilterParty('Minister; MSGC');
+    }
+  };
+
+
+main
   const handleStatusChange = (id: number, status: Status) => {
     setStatusMap((prev) => ({ ...prev, [id]: status }));
   };
@@ -514,6 +899,17 @@ main
               className="min-h-[90px] resize-none rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
             />
           </label>
+codex/redesign-website-experience-and-visuals-ua4kes
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <button
+              onClick={() => handleItemCalendarDownload(item)}
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-cyan-100 transition hover:border-cyan-300/60 hover:bg-cyan-500/20"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" /> Add to calendar
+            </button>
+          </div>
+
+main
         </div>
       </div>
     );
@@ -608,6 +1004,17 @@ main
                     {item.responsible}
                   </div>
                 </div>
+codex/redesign-website-experience-and-visuals-ua4kes
+                <div className="mt-4">
+                  <button
+                    onClick={() => handleItemCalendarDownload(item)}
+                    className="inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs text-cyan-100 transition hover:border-cyan-300/60 hover:bg-cyan-500/20"
+                  >
+                    <CalendarPlus className="h-3.5 w-3.5" /> Add to calendar
+                  </button>
+                </div>
+
+main
               </div>
             );
           })}
@@ -778,6 +1185,16 @@ main
   return (
     <div className="min-h-screen pb-16">
       <div className="relative mx-auto w-full max-w-7xl px-6 pt-12 lg:px-10">
+codex/redesign-website-experience-and-visuals-ua4kes
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={handleImportFile}
+        />
+
+main
         <Header
           theme={theme}
           onThemeToggle={handleThemeToggle}
@@ -806,10 +1223,15 @@ main
           onFilterPartyChange={setFilterParty}
           onHighPriorityToggle={() => setShowHighPriority(!showHighPriority)}
           onViewModeChange={setViewMode}
-          onRolePresetChange={setRolePreset}
+          onRolePresetChange={handleRolePresetChange}
           onQuickViewChange={setQuickView}
           onSortKeyChange={setSortKey}
           onSortDirChange={setSortDir}
+          onShareWorkspace={handleShareWorkspace}
+          onDownloadCalendar={handleCalendarDownload}
+          onResetWorkspace={handleResetWorkspace}
+          statusMessage={toast}
+          shareUrl={shareUrl}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(260px,320px)] gap-8">
