@@ -1,4 +1,5 @@
 export const STORAGE_KEY = 'msa_compliance_tracker_v1';
+export const SHARE_QUERY_KEY = 'state';
 
 export const FILTER_OPTIONS = {
   categories: [
