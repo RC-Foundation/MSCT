@@ -770,7 +770,7 @@ export const complianceItems: ComplianceItem[] = [
     category: 'Land',
     section: 'MSLR Reg (Objections); MSLR Policy #3',
     title: 'PMT Expiry Notice',
-    description: 'Issue 60-day advance notice of Provisional Métis Title expiry',
+  description: 'Issue 60-day advance notice of Provisional Metis Title expiry',
     deadline: '≥60 days before PMT expiry',
     frequency: 'Per PMT',
     type: 'Notice',

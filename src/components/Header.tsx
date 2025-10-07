@@ -15,10 +15,10 @@ export const Header = ({ theme, onThemeToggle, onExport, onImport, onPrint, onSh
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Métis Settlements Comprehensive Compliance Tracker (2025)
+            Metis Settlements Compliance Tracker (2025)
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Track deadlines, requirements, and obligations under the Métis Settlements Act and associated legislation
+            Track deadlines, requirements, and obligations under the Metis Settlements Act and associated legislation
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -38,6 +38,35 @@ function App() {
     }
   }, []);
 
+  // deduplicate source items by id once at runtime
+  const dedupedItems = useMemo(() => {
+    const seen = new Set<number>();
+    return complianceItems.filter((it) => {
+      if (seen.has(it.id)) return false;
+      seen.add(it.id);
+      return true;
+    });
+  }, [complianceItems]);
+
+  // helper to ensure every item has a status (default to 'Pending')
+  const ensureStatusDefaults = (current: Record<number, Status>, items: typeof complianceItems) => {
+    const out: Record<number, Status> = { ...(current || {}) };
+    items.forEach((it) => {
+      if (!out[it.id]) out[it.id] = 'Pending';
+    });
+    return out;
+  };
+
+  // ensure defaults whenever the deduped items change or statusMap loads
+  useEffect(() => {
+    setStatusMap((prev) => {
+      const merged = ensureStatusDefaults(prev, dedupedItems);
+      // if nothing changed, return prev to avoid extra renders
+      const same = Object.keys(merged).length === Object.keys(prev).length && Object.keys(merged).every((k) => (prev as any)[k] === (merged as any)[k]);
+      return same ? prev : merged;
+    });
+  }, [dedupedItems]);
+
   useEffect(() => {
     const snapshot: Partial<AppState> = {
       statusMap,
@@ -67,15 +96,8 @@ function App() {
   }, [rolePreset]);
 
   const filteredItems = useMemo(() => {
-    // dedupe by id and merge pinned flag
-    const seen = new Set<number>();
-    const base = complianceItems
-      .filter((it) => {
-        if (seen.has(it.id)) return false;
-        seen.add(it.id);
-        return true;
-      })
-      .map((it) => ({ ...it, pinned: pinnedIds.includes(it.id) }));
+    // use deduplicated base and merge pinned flag
+    const base = dedupedItems.map((it) => ({ ...it, pinned: pinnedIds.includes(it.id) }));
 
     let items = base.filter((item) => {
       const matchesSearch =
@@ -173,9 +195,9 @@ function App() {
   };
 
   const handleExport = () => {
-    const snapshot = { complianceItems, statusMap, notesMap, pinnedIds };
-    exportJSON(snapshot, 'msct-export.json');
-    const csv = exportToCSV(complianceItems, statusMap, notesMap);
+  const snapshot = { complianceItems: dedupedItems, statusMap, notesMap, pinnedIds };
+  exportJSON(snapshot, 'msct-export.json');
+  const csv = exportToCSV(dedupedItems, statusMap, notesMap);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     // prompt CSV download
@@ -236,7 +258,7 @@ function App() {
           quickView={quickView}
           sortKey={sortKey}
           sortDir={sortDir}
-          totalItems={complianceItems.length}
+          totalItems={dedupedItems.length}
           filteredCount={filteredItems.length}
           onSearchChange={setSearchTerm}
           onFilterCategoryChange={setFilterCategory}
