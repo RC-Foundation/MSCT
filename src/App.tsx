@@ -4,6 +4,7 @@ import { Controls } from './components/Controls';
 import { complianceItems } from './data/complianceItems';
 import { ViewMode, RolePreset, QuickView, SortKey, Status, AppState } from './types/compliance';
 import { STORAGE_KEY } from './utils/constants';
+import { encodeStateToUrl, exportJSON, exportToCSV, decodeStateFromUrl } from './utils/helpers';
 import { Calendar } from 'lucide-react';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [statusMap, setStatusMap] = useState<Record<number, Status>>({});
   const [notesMap, setNotesMap] = useState<Record<number, string>>({});
+  const [pinnedIds, setPinnedIds] = useState<number[]>([]);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -29,6 +31,7 @@ function App() {
         setStatusMap(parsed.statusMap || {});
         setNotesMap(parsed.notesMap || {});
         setTheme(parsed.theme || 'light');
+        setPinnedIds((parsed as any).pinnedIds || []);
       } catch (e) {
         console.error('Failed to load state from localStorage', e);
       }
@@ -41,7 +44,8 @@ function App() {
       notesMap,
       theme,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    const toSave = { ...snapshot, pinnedIds } as any;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   }, [statusMap, notesMap, theme]);
 
   useEffect(() => {
@@ -63,7 +67,17 @@ function App() {
   }, [rolePreset]);
 
   const filteredItems = useMemo(() => {
-    let items = complianceItems.filter((item) => {
+    // dedupe by id and merge pinned flag
+    const seen = new Set<number>();
+    const base = complianceItems
+      .filter((it) => {
+        if (seen.has(it.id)) return false;
+        seen.add(it.id);
+        return true;
+      })
+      .map((it) => ({ ...it, pinned: pinnedIds.includes(it.id) }));
+
+    let items = base.filter((item) => {
       const matchesSearch =
         searchTerm === '' ||
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,16 +131,83 @@ function App() {
     return items;
   }, [complianceItems, searchTerm, filterType, filterParty, filterCategory, showHighPriority, quickView, sortKey, sortDir, statusMap]);
 
+  const handleShare = () => {
+    const shareState = {
+      statusMap,
+      notesMap,
+      theme,
+      pinnedIds,
+      filters: { searchTerm, filterType, filterParty, filterCategory, showHighPriority, viewMode, rolePreset, quickView, sortKey, sortDir },
+    };
+    const token = encodeStateToUrl(shareState);
+    const url = `${window.location.origin}${window.location.pathname}?s=${token}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => alert('Shareable link copied to clipboard'))
+      .catch(() => prompt('Copy this link', url));
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('s');
+    if (s) {
+      const decoded = decodeStateFromUrl(s);
+      if (decoded) {
+        setStatusMap(decoded.statusMap || {});
+        setNotesMap(decoded.notesMap || {});
+        setTheme(decoded.theme || 'light');
+        setPinnedIds(decoded.pinnedIds || []);
+        if (decoded.filters) {
+          setSearchTerm(decoded.filters.searchTerm || '');
+          setFilterType(decoded.filters.filterType || 'all');
+          setFilterParty(decoded.filters.filterParty || 'all');
+          setFilterCategory(decoded.filters.filterCategory || 'all');
+          setShowHighPriority(decoded.filters.showHighPriority || false);
+        }
+      }
+    }
+  }, []);
+
   const handleThemeToggle = () => {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   };
 
   const handleExport = () => {
-    alert('Export functionality - CSV and JSON exports available');
+    const snapshot = { complianceItems, statusMap, notesMap, pinnedIds };
+    exportJSON(snapshot, 'msct-export.json');
+    const csv = exportToCSV(complianceItems, statusMap, notesMap);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    // prompt CSV download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'msct-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const handleImport = () => {
-    alert('Import functionality - Import JSON data');
+  const handleImport = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          if (parsed.statusMap) setStatusMap(parsed.statusMap);
+          if (parsed.notesMap) setNotesMap(parsed.notesMap);
+          if (parsed.pinnedIds) setPinnedIds(parsed.pinnedIds);
+          alert('Import complete');
+        } catch (err) {
+          alert('Failed to import: invalid JSON');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   const handlePrint = () => {
@@ -142,6 +223,7 @@ function App() {
           onExport={handleExport}
           onImport={handleImport}
           onPrint={handlePrint}
+          onShare={handleShare}
         />
         <Controls
           searchTerm={searchTerm}

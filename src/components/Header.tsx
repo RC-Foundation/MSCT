@@ -6,9 +6,10 @@ interface HeaderProps {
   onExport: () => void;
   onImport: () => void;
   onPrint: () => void;
+  onShare?: () => void;
 }
 
-export const Header = ({ theme, onThemeToggle, onExport, onImport, onPrint }: HeaderProps) => {
+export const Header = ({ theme, onThemeToggle, onExport, onImport, onPrint, onShare }: HeaderProps) => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-700 shadow">
       <div className="flex items-start justify-between">
@@ -27,6 +28,13 @@ export const Header = ({ theme, onThemeToggle, onExport, onImport, onPrint }: He
           >
             <Download className="w-4 h-4" />
             Export
+          </button>
+          <button
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            onClick={onShare}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M16 6l-4-4-4 4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M12 2v13" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            Share
           </button>
           <button
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition"

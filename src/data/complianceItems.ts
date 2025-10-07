@@ -764,11 +764,7 @@ export const complianceItems: ComplianceItem[] = [
     action: 'Ensure all land transactions are properly recorded. Verify accuracy of title documents. Conduct periodic audits of land records. Resolve discrepancies promptly.',
     consequences: 'Inaccurate records may lead to ownership disputes. Could result in legal challenges or financial losses for affected members.',
     relatedSections: ['MSA §106', 'MSA §110']
-  }
-];
-
-// Additional items (51-79) added to match UI and ensure completeness
-export const additionalComplianceItems = [
+  },
   {
     id: 51,
     category: 'Land',
@@ -1197,3 +1193,4 @@ export const additionalComplianceItems = [
     consequences: 'Same as item 34.'
   }
 ];
+
