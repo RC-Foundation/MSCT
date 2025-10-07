@@ -764,17 +764,13 @@ export const complianceItems: ComplianceItem[] = [
     action: 'Ensure all land transactions are properly recorded. Verify accuracy of title documents. Conduct periodic audits of land records. Resolve discrepancies promptly.',
     consequences: 'Inaccurate records may lead to ownership disputes. Could result in legal challenges or financial losses for affected members.',
     relatedSections: ['MSA §106', 'MSA §110']
-  }
-];
-
-// Additional items (51-79) added to match UI and ensure completeness
-export const additionalComplianceItems = [
+  },
   {
     id: 51,
     category: 'Land',
     section: 'MSLR Reg (Objections); MSLR Policy #3',
     title: 'PMT Expiry Notice',
-    description: 'Issue 60-day advance notice of Provisional Métis Title expiry',
+  description: 'Issue 60-day advance notice of Provisional Metis Title expiry',
     deadline: '≥60 days before PMT expiry',
     frequency: 'Per PMT',
     type: 'Notice',
@@ -1197,3 +1193,4 @@ export const additionalComplianceItems = [
     consequences: 'Same as item 34.'
   }
 ];
+
