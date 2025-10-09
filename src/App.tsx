@@ -10,15 +10,10 @@ import {
   Status,
   AppState,
   ComplianceItem,
-codex/redesign-website-experience-and-visuals-ua4kes
   FilterState,
 } from './types/compliance';
 import { STORAGE_KEY, SHARE_QUERY_KEY } from './utils/constants';
 import { downloadItemsToCalendar, downloadItemToCalendar } from './utils/ics';
-} from './types/compliance';
-import { STORAGE_KEY } from './utils/constants';
-main
-main
 import {
   Calendar,
   AlertTriangle,
@@ -30,10 +25,7 @@ import {
   Layers3,
   ShieldCheck,
   StickyNote,
-codex/redesign-website-experience-and-visuals-ua4kes
   CalendarPlus,
-
-main
 } from 'lucide-react';
 
 const MONTHS = [
@@ -53,7 +45,6 @@ const MONTHS = [
 
 const statusOptions: Status[] = ['Pending', 'In Progress', 'Completed', 'Overdue'];
 
-codex/redesign-website-experience-and-visuals-ua4kes
 const defaultFilters: FilterState = {
   searchTerm: '',
   filterType: 'all',
@@ -94,8 +85,6 @@ const decodeStatePayload = (payload: string): AppState => {
   return JSON.parse(json) as AppState;
 };
 
-
-main
 const priorityAccent: Record<string, { bg: string; text: string; ring: string }> = {
   Critical: {
     bg: 'from-rose-500/30 via-rose-500/10 to-transparent',
@@ -156,7 +145,6 @@ const getSortValue = (item: ComplianceItem, sortKey: SortKey) => {
 };
 
 const defaultStatus: Status = 'Pending';
-codex/redesign-website-experience-and-visuals-ua4kes
 
 function App() {
   const [searchTerm, setSearchTerm] = useState(defaultFilters.searchTerm);
@@ -216,26 +204,6 @@ function App() {
       setShareUrl(link);
     }
   };
-import { encodeStateToUrl, exportJSON, exportToCSV, decodeStateFromUrl } from './utils/helpers';
-import { Calendar } from 'lucide-react';
-main
-
-function App() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterParty, setFilterParty] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [showHighPriority, setShowHighPriority] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
-  const [rolePreset, setRolePreset] = useState<RolePreset>('all');
-  const [quickView, setQuickView] = useState<QuickView>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('priority');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [statusMap, setStatusMap] = useState<Record<number, Status>>({});
-  const [notesMap, setNotesMap] = useState<Record<number, string>>({});
-  const [pinnedIds, setPinnedIds] = useState<number[]>([]);
-main
 
   useEffect(() => {
     if (!toast) return;
@@ -289,56 +257,14 @@ main
     if (raw) {
       try {
         const parsed: AppState = JSON.parse(raw);
-codex/redesign-website-experience-and-visuals-ua4kes
         applyImportedState(parsed);
       } catch (error) {
         console.error('Failed to load state from localStorage', error);
-        setStatusMap(parsed.statusMap || {});
-        setNotesMap(parsed.notesMap || {});
-main
-        setTheme(parsed.theme || 'dark');
-
-        setTheme(parsed.theme || 'light');
-        setPinnedIds((parsed as any).pinnedIds || []);
-main
-      } catch (e) {
-        console.error('Failed to load state from localStorage', e);
-main
       }
     }
   }, []);
 
-  // deduplicate source items by id once at runtime
-  const dedupedItems = useMemo(() => {
-    const seen = new Set<number>();
-    return complianceItems.filter((it) => {
-      if (seen.has(it.id)) return false;
-      seen.add(it.id);
-      return true;
-    });
-  }, [complianceItems]);
-
-  // helper to ensure every item has a status (default to 'Pending')
-  const ensureStatusDefaults = (current: Record<number, Status>, items: typeof complianceItems) => {
-    const out: Record<number, Status> = { ...(current || {}) };
-    items.forEach((it) => {
-      if (!out[it.id]) out[it.id] = 'Pending';
-    });
-    return out;
-  };
-
-  // ensure defaults whenever the deduped items change or statusMap loads
   useEffect(() => {
-    setStatusMap((prev) => {
-      const merged = ensureStatusDefaults(prev, dedupedItems);
-      // if nothing changed, return prev to avoid extra renders
-      const same = Object.keys(merged).length === Object.keys(prev).length && Object.keys(merged).every((k) => (prev as any)[k] === (merged as any)[k]);
-      return same ? prev : merged;
-    });
-  }, [dedupedItems]);
-
-  useEffect(() => {
-codex/redesign-website-experience-and-visuals-ua4kes
     const snapshot = buildStateSnapshot();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
@@ -356,15 +282,6 @@ codex/redesign-website-experience-and-visuals-ua4kes
     sortKey,
     sortDir,
   ]);
-    const snapshot: Partial<AppState> = {
-      statusMap,
-      notesMap,
-      theme,
-    };
-    const toSave = { ...snapshot, pinnedIds } as any;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  }, [statusMap, notesMap, theme]);
-main
 
   useEffect(() => {
     const root = document.documentElement;
@@ -372,39 +289,13 @@ main
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
-codex/redesign-website-experience-and-visuals-ua4kes
-
     }
   }, [theme]);
-
-  useEffect(() => {
-    if (rolePreset === 'all') {
-      setFilterParty('all');
-    } else if (rolePreset === 'council') {
-      setFilterParty('Settlement Council');
-    } else if (rolePreset === 'administrator') {
-      setFilterParty('Settlement Administrator');
-    } else if (rolePreset === 'registrar') {
-      setFilterParty('MSLR Registrar');
-    } else if (rolePreset === 'msgc') {
-      setFilterParty('MSGC (General Council)');
-    } else if (rolePreset === 'msat') {
-      setFilterParty('MSAT');
-    } else if (rolePreset === 'minister') {
-      setFilterParty('Minister; MSGC');
-main
-    }
-  }, [theme]);
-
-  const resolveStatus = (id: number) => statusMap[id] || defaultStatus;
 
   const resolveStatus = (id: number) => statusMap[id] || defaultStatus;
 
   const filteredItems = useMemo(() => {
-    // use deduplicated base and merge pinned flag
-    const base = dedupedItems.map((it) => ({ ...it, pinned: pinnedIds.includes(it.id) }));
-
-    let items = base.filter((item) => {
+    let items = complianceItems.filter((item) => {
       const matchesSearch =
         searchTerm === '' ||
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -457,7 +348,6 @@ main
       const idxB = monthB ? MONTHS.indexOf(monthB) : 99;
       if (idxA !== idxB) return idxA - idxB;
       return (priorityRank[b.priority] ?? 0) - (priorityRank[a.priority] ?? 0);
-codex/redesign-website-experience-and-visuals-ua4kes
     });
     return ranked;
   }, [filteredItems]);
@@ -517,110 +407,12 @@ codex/redesign-website-experience-and-visuals-ua4kes
       .sort((a, b) => b[1] - a[1])
       .slice(0, 4);
   }, [filteredItems]);
-    });
-    return ranked;
-  }, [filteredItems]);
-
-  const calendarBuckets = useMemo(() => {
-    const buckets = new Map<string, ComplianceItem[]>();
-    filteredItems.forEach((item) => {
-      const month = resolveMonthForItem(item) ?? 'Flexible';
-      const existing = buckets.get(month) ?? [];
-      existing.push(item);
-      buckets.set(month, existing);
-    });
-    return buckets;
-  }, [filteredItems]);
-
-  const priorityCounts = useMemo(() => {
-    return complianceItems.reduce(
-      (acc, item) => {
-        acc[item.priority] = (acc[item.priority] ?? 0) + 1;
-        return acc;
-      },
-      { Critical: 0, High: 0, Medium: 0, Low: 0 } as Record<string, number>,
-    );
-  }, []);
-
-  const statusCounts = useMemo(() => {
-    return complianceItems.reduce(
-      (acc, item) => {
-        const status = resolveStatus(item.id);
-        acc[status] = (acc[status] ?? 0) + 1;
-        return acc;
-      },
-      { Pending: 0, 'In Progress': 0, Completed: 0, Overdue: 0 } as Record<Status, number>,
-    );
-  }, [statusMap]);
-
-  const completionRate = Math.round((statusCounts.Completed / complianceItems.length) * 100);
-  const activeCritical = filteredItems.filter((item) => item.priority === 'Critical' && resolveStatus(item.id) !== 'Completed').length;
-
-  const upcomingHighlights = useMemo(() => {
-    return timelineItems
-      .filter((item) => resolveMonthForItem(item) !== null)
-      .slice(0, 5)
-      .map((item) => ({
-        item,
-        month: resolveMonthForItem(item) ?? 'Flexible',
-        status: resolveStatus(item.id),
-      }));
-  }, [timelineItems, statusMap]);
-
-  const topParties = useMemo(() => {
-    const counts: Record<string, number> = {};
-    filteredItems.forEach((item) => {
-      counts[item.responsible] = (counts[item.responsible] ?? 0) + 1;
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4);
-  }, [filteredItems]);
-
-  const handleShare = () => {
-    const shareState = {
-      statusMap,
-      notesMap,
-      theme,
-      pinnedIds,
-      filters: { searchTerm, filterType, filterParty, filterCategory, showHighPriority, viewMode, rolePreset, quickView, sortKey, sortDir },
-    };
-    const token = encodeStateToUrl(shareState);
-    const url = `${window.location.origin}${window.location.pathname}?s=${token}`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => alert('Shareable link copied to clipboard'))
-      .catch(() => prompt('Copy this link', url));
-  };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const s = params.get('s');
-    if (s) {
-      const decoded = decodeStateFromUrl(s);
-      if (decoded) {
-        setStatusMap(decoded.statusMap || {});
-        setNotesMap(decoded.notesMap || {});
-        setTheme(decoded.theme || 'light');
-        setPinnedIds(decoded.pinnedIds || []);
-        if (decoded.filters) {
-          setSearchTerm(decoded.filters.searchTerm || '');
-          setFilterType(decoded.filters.filterType || 'all');
-          setFilterParty(decoded.filters.filterParty || 'all');
-          setFilterCategory(decoded.filters.filterCategory || 'all');
-          setShowHighPriority(decoded.filters.showHighPriority || false);
-        }
-      }
-    }
-  }, []);
-main
 
   const handleThemeToggle = () => {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
   };
 
   const handleExport = () => {
-codex/redesign-website-experience-and-visuals-ua4kes
     try {
       const snapshot = buildStateSnapshot();
       const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
@@ -662,50 +454,12 @@ codex/redesign-website-experience-and-visuals-ua4kes
 
     reader.readAsText(file);
     event.target.value = '';
-
-  const snapshot = { complianceItems: dedupedItems, statusMap, notesMap, pinnedIds };
-  exportJSON(snapshot, 'msct-export.json');
-  const csv = exportToCSV(dedupedItems, statusMap, notesMap);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    // prompt CSV download
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'msct-export.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImport = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e: any) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const parsed = JSON.parse(ev.target?.result as string);
-          if (parsed.statusMap) setStatusMap(parsed.statusMap);
-          if (parsed.notesMap) setNotesMap(parsed.notesMap);
-          if (parsed.pinnedIds) setPinnedIds(parsed.pinnedIds);
-          alert('Import complete');
-        } catch (err) {
-          alert('Failed to import: invalid JSON');
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-main
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-codex/redesign-website-experience-and-visuals-ua4kes
   const handleShareWorkspace = async () => {
     try {
       const snapshot = buildStateSnapshot();
@@ -794,8 +548,6 @@ codex/redesign-website-experience-and-visuals-ua4kes
     }
   };
 
-
-main
   const handleStatusChange = (id: number, status: Status) => {
     setStatusMap((prev) => ({ ...prev, [id]: status }));
   };
@@ -899,7 +651,6 @@ main
               className="min-h-[90px] resize-none rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
             />
           </label>
-codex/redesign-website-experience-and-visuals-ua4kes
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
             <button
               onClick={() => handleItemCalendarDownload(item)}
@@ -908,8 +659,6 @@ codex/redesign-website-experience-and-visuals-ua4kes
               <CalendarPlus className="h-3.5 w-3.5" /> Add to calendar
             </button>
           </div>
-
-main
         </div>
       </div>
     );
@@ -1004,7 +753,6 @@ main
                     {item.responsible}
                   </div>
                 </div>
-codex/redesign-website-experience-and-visuals-ua4kes
                 <div className="mt-4">
                   <button
                     onClick={() => handleItemCalendarDownload(item)}
@@ -1013,8 +761,6 @@ codex/redesign-website-experience-and-visuals-ua4kes
                     <CalendarPlus className="h-3.5 w-3.5" /> Add to calendar
                   </button>
                 </div>
-
-main
               </div>
             );
           })}
@@ -1185,7 +931,6 @@ main
   return (
     <div className="min-h-screen pb-16">
       <div className="relative mx-auto w-full max-w-7xl px-6 pt-12 lg:px-10">
-codex/redesign-website-experience-and-visuals-ua4kes
         <input
           ref={importInputRef}
           type="file"
@@ -1193,15 +938,12 @@ codex/redesign-website-experience-and-visuals-ua4kes
           className="hidden"
           onChange={handleImportFile}
         />
-
-main
         <Header
           theme={theme}
           onThemeToggle={handleThemeToggle}
           onExport={handleExport}
           onImport={handleImport}
           onPrint={handlePrint}
-          onShare={handleShare}
         />
 
         <Controls
@@ -1215,7 +957,7 @@ main
           quickView={quickView}
           sortKey={sortKey}
           sortDir={sortDir}
-          totalItems={dedupedItems.length}
+          totalItems={complianceItems.length}
           filteredCount={filteredItems.length}
           onSearchChange={setSearchTerm}
           onFilterCategoryChange={setFilterCategory}
